@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Population Data Analysis</title>
+</head>
+<body>
+    <h1>Population Data Analysis</h1>
+    <button type="button" onclick="updatePopulationData()">Update Population Data</button>
+    <button type="button" onclick="getYearlyAverage()">Get Yearly Average Analysis</button>
+
+    <h2>Results</h2>
+    <div id="results"></div>
+
+    <script>
+        function updatePopulationData() {
+            fetch('/update_population_data')
+                .then(response => response.json())
+                .then(data => {
+                    let resultsDiv = document.getElementById('results');
+                    resultsDiv.innerHTML = `<p>${data.message}</p>`;
+                })
+                .catch(error => {
+                    console.error('Error updating population data:', error);
+                });
+        }
+
+        function getYearlyAverage() {
+            fetch('/get_analysis')
+                .then(response => response.json())
+                .then(data => {
+                    let resultsDiv = document.getElementById('results');
+                    resultsDiv.innerHTML = '<h3>Yearly Averages:</h3>';
+                    for (const [year, total] of Object.entries(data)) {
+                        // Format the total using toLocaleString to include commas
+                        resultsDiv.innerHTML += `<p>${year}: ${total.toLocaleString('en-US')}</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching yearly averages:', error);
+                });
+        }
+    </script>
+</body>
+</html>
+
