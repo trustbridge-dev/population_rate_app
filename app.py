@@ -61,9 +61,25 @@ def register_routes(app):
     def index():
         return render_template('index.html')
     
+    #Create a Health check point
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        return jsonify({"status": "ok"}), 200
 
+    #Create a metrics route
+    @app.route('/metrics')
+    def metrics():
+    #Return application metrics
+        total_entries = PopulationData.query.count()
+        total_population = db.session.query(db.func.sum(PopulationData.population)).scalar()
+        unique_years = db.session.query(PopulationData.year).distinct().count()
 
-
+        metrics_data = {
+            "total_entries": total_entries,
+            "total_population": total_population,
+            "unique_years": unique_years
+        }
+        return jsonify(metrics_data)
     
 def fetch_population_data():
     url = "https://datausa.io/api/data?drilldowns=Nation&measures=Population"
