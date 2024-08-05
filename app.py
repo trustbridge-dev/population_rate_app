@@ -2,6 +2,8 @@ from flask import Flask, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 import requests
+#Import Pika for RabbitMQ
+import pika
 
 # Initialize the database
 db = SQLAlchemy()
@@ -35,6 +37,8 @@ def create_app(testing=False):
 
     return app
 
+
+#Create an app instance for Gunicorn
 def register_routes(app):
 #Register routes with the Flask app.
     @app.route('/update_population_data')
@@ -50,7 +54,12 @@ def register_routes(app):
                     new_record = PopulationData(year=entry['year'], month=month, population=monthly_population)
                     db.session.add(new_record)
         db.session.commit()
+        #Publish a message to RabbitMQ
+        publish_message('Population data updated')
+
+
         return jsonify({"message": "Population data updated successfully"}), 200
+    
     #Route to create the Analysis
     @app.route('/get_analysis')
     def get_analysis():
@@ -106,6 +115,28 @@ def get_yearly_averages():
 
     result = {year: total_population for year, total_population in yearly_averages}
     return result
+
+
+
+
+def publish_message(message):
+    """Publish a message to a RabbitMQ queue."""
+    # Connect to RabbitMQ
+    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    channel = connection.channel()
+
+    # Declare a queue
+    channel.queue_declare(queue='population_updates')
+
+    # Publish a message to the queue
+    channel.basic_publish(exchange='', routing_key='population_updates', body=message)
+    print(f"Published message: {message}")
+
+    # Close the connection
+    connection.close()
+
+
+
 
 if __name__ == '__main__':
     app = create_app()
