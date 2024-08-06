@@ -1,24 +1,25 @@
 import pika
 
 def consume_messages():
-    #Consume messages from the RabbitMQ queue.
-    # Connect to RabbitMQ
+    #Consume messages from the specified RabbitMQ queue
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = connection.channel()
 
-    # Declare a queue
-    channel.queue_declare(queue='population_updates')
+    # Declare the queue with durable=True
+    channel.queue_declare(queue='population_updates', durable=True)
 
-    # Callback function to process messages
     def callback(ch, method, properties, body):
-        print(f"Received message: {body.decode()}")
+        print(f" [x] Received {body.decode()}")
+        # Process the message
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    # Start consuming messages
-    channel.basic_consume(queue='population_updates', on_message_callback=callback, auto_ack=True)
+    # Consume messages
+    channel.basic_consume(queue='population_updates', on_message_callback=callback)
 
-    print('Waiting for messages. To exit press CTRL+C')
+    print(' [*] Waiting for messages. To exit press CTRL+C')
     channel.start_consuming()
 
 if __name__ == '__main__':
     consume_messages()
+
 
