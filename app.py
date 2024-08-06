@@ -55,7 +55,7 @@ def register_routes(app):
                     db.session.add(new_record)
         db.session.commit()
         #Publish a message to RabbitMQ
-        publish_message('Population data updated')
+        publish_message('population_updates','Population data updated')
 
 
         return jsonify({"message": "Population data updated successfully"}), 200
@@ -118,23 +118,26 @@ def get_yearly_averages():
 
 
 
-
-def publish_message(message):
-    """Publish a message to a RabbitMQ queue."""
-    # Connect to RabbitMQ
+def publish_message(queue_name, message):
+    #Publish a message to the specified RabbitMQ queue."""
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = connection.channel()
 
     # Declare a queue
-    channel.queue_declare(queue='population_updates')
+    channel.queue_declare(queue=queue_name, durable=True)
 
-    # Publish a message to the queue
-    channel.basic_publish(exchange='', routing_key='population_updates', body=message)
-    print(f"Published message: {message}")
+    # Publish a message
+    channel.basic_publish(
+        exchange='',
+        routing_key=queue_name,
+        body=message,
+        properties=pika.BasicProperties(
+            delivery_mode=2,  # Make message persistent
+        )
+    )
 
-    # Close the connection
+    print(f" [x] Sent {message}")
     connection.close()
-
 
 
 
