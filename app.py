@@ -119,8 +119,10 @@ def get_yearly_averages():
 
 
 def publish_message(queue_name, message):
-    #Publish a message to the specified RabbitMQ queue."""
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    #Publish a message to the specified RabbitMQ queue.
+    rabbitmq_url = os.environ.get('CLOUDAMQP_URL')
+    params = pika.URLParameters(rabbitmq_url)
+    connection = pika.BlockingConnection(params)
     channel = connection.channel()
 
     # Declare a queue
