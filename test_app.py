@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, ANY
 from app import create_app, db, PopulationData, get_yearly_averages
 
 class YearlyAveragesTestCase(unittest.TestCase):
@@ -16,9 +16,9 @@ class YearlyAveragesTestCase(unittest.TestCase):
         db.drop_all()
         self.app_context.pop()
 
-    @patch('app.publish_message')
+    @patch('app.pika.BlockingConnection', autospec=True)
     @patch('app.fetch_population_data')
-    def test_update_population_data_with_mock_messaging(self, mock_fetch_population_data, mock_publish_message):
+    def test_update_population_data_with_mock_messaging(self, mock_fetch_population_data, mock_blocking_connection):
         #Test the get_yearly_averages function using mock data
         # Define mock data
         mock_data = [
@@ -28,7 +28,15 @@ class YearlyAveragesTestCase(unittest.TestCase):
 
         # Configure the mock to return this data
         mock_fetch_population_data.return_value = mock_data
-        mock_publish_message.return_value = None
+      
+
+        # Mock the RabbitMQ connection
+        mock_connection = MagicMock()
+        mock_channel = MagicMock()
+        mock_blocking_connection.return_value = mock_connection
+        mock_connection.channel.return_value = mock_channel
+
+
 
         # Call the function that uses fetch_population_data
         response = self.app.test_client().get('/update_population_data')
@@ -38,8 +46,18 @@ class YearlyAveragesTestCase(unittest.TestCase):
         self.assertIn(b'Population data updated successfully', response.data)
 
 
-        #Verify that the publish_message function was called
-        mock_publish_message.assert_called_once_with('population_updates','Population data updated')
+        # Verify that RabbitMQ connection was used correctly
+        mock_blocking_connection.assert_called_once()
+        mock_connection.channel.assert_called_once()
+        mock_channel.queue_declare.assert_called_once_with(queue='population_updates', durable=True)
+        mock_channel.basic_publish.assert_called_once_with(
+            exchange='',
+            routing_key='population_updates',
+            body='Population data updated',
+            properties=ANY
+        )
+
+
 
 
         # Now test the yearly averages

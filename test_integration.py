@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, ANY
 from app import create_app, db, PopulationData
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 
@@ -18,8 +18,9 @@ class IntegrationTestCase(unittest.TestCase):
         db.drop_all()
         self.app_context.pop()
 
+    @patch('app.pika.BlockingConnection', autospec=True)
     @patch('app.fetch_population_data')
-    def test_integration_flow(self, mock_fetch_population_data):
+    def test_integration_flow(self, mock_fetch_population_data, mock_blocking_connection):
 #Test the integration flow of updating and analyzing data
         # Define mock data for the external API
         mock_data = [
@@ -30,10 +31,20 @@ class IntegrationTestCase(unittest.TestCase):
         # Configure the mock to return the mock data
         mock_fetch_population_data.return_value = mock_data
 
+
+        # Mock the RabbitMQ connection
+        mock_connection = MagicMock()
+        mock_channel = MagicMock()
+        mock_blocking_connection.return_value = mock_connection
+        mock_connection.channel.return_value = mock_channel
+
+
+
         # Simulate a request to update the population data
         response_update = self.client.get('/update_population_data')
         self.assertEqual(response_update.status_code, 200)
         self.assertIn(b'Population data updated successfully', response_update.data)
+
 
         # Check if the database is populated correctly
         for data in mock_data:
@@ -52,6 +63,21 @@ class IntegrationTestCase(unittest.TestCase):
         analysis_result = {int(year): population for year, population in analysis_result.items()}
         expected_analysis = {2013: 18000, 2014: 24000}
         self.assertEqual(analysis_result, expected_analysis)
+
+
+
+        # Verify that RabbitMQ connection was used correctly
+        mock_blocking_connection.assert_called_once()
+        mock_connection.channel.assert_called_once()
+        mock_channel.queue_declare.assert_called_once_with(queue='population_updates', durable=True)
+        mock_channel.basic_publish.assert_called_once_with(
+            exchange='',
+            routing_key='population_updates',
+            body='Population data updated',
+            properties=ANY
+        )
+
+
 
         # Test the /metrics endpoint
         response_metrics = self.client.get('/metrics')
