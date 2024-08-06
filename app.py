@@ -4,6 +4,7 @@ from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 import requests
 #Import Pika for RabbitMQ
 import pika
+import os
 
 # Initialize the database
 db = SQLAlchemy()
